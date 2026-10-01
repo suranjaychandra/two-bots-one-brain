@@ -105,6 +105,8 @@
   .overlay td { padding: 6px 8px; border-bottom: 1.5px solid var(--ink); }
   .overlay td:not(:first-child) { text-align: right; font-weight: 600; }
   .overlay .hl { background: var(--pink); }
+  .o-note { font-size: 12px; color: #555; margin: -4px 0 10px; }
+  .overlay td small { color: var(--grey-3); font-weight: 400; }
   .mistakes { margin: 0 0 16px; font-size: 12.5px; max-height: 34vh; overflow: auto; }
   .m-head { font: 19px/1 var(--pixel); margin: 10px 0 4px; color: var(--bad); }
   .m-head.ok { color: var(--good); }
@@ -200,6 +202,7 @@
     <div class="body">
       <h2 id="o-title">Round over</h2>
       <table id="o-table"></table>
+      <p class="o-note"><b>Correct decisions is the fair score:</b> each answer is checked against that bot's own situation. The outcome also depends on aim and positioning, so judge it over a few rounds.</p>
       <div class="mistakes" id="o-mistakes"></div>
       <div class="o-actions">
         <button class="btn go" id="again">PLAY AGAIN</button>

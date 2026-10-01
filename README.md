@@ -42,6 +42,13 @@ Open http://localhost:3001, choose **YOU PLAY** (WASD to move, click to shoot) o
 
 The bots choose between five actions: **retreat**, **heal**, **attack**, **investigate**, and **patrol**. A minute of play makes about 80 Jev calls, roughly $0.003.
 
+## Keeping it fair
+
+- **Same everything except the state.** Both bots get the same rules, the same question, the same model, and the same starting position. You move the same way in both arenas.
+- **Same aim.** The bots end up in different places, so a click aims at each arena's own bot when it's close to where you clicked. One click is equally accurate in both arenas.
+- **Each arena has its own fight.** You have 150 hp in each arena, and bullets travel 16–18 m, so retreating out of range actually saves a bot.
+- **Correct decisions is the fair score.** Each answer is checked against the rules for that bot's own situation. Who wins a round also depends on aim and positioning, so compare outcomes over several rounds rather than one.
+
 ## License
 
 [MIT](LICENSE) © 2026 Suranjay Kumar

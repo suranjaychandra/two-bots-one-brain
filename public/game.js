@@ -8,6 +8,10 @@ const DECIDE_EVERY = 1.5;        // seconds between a bot's decisions
 const VISION = 22;               // meters a bot can see
 const NEAR = 10;                 // "near" in the rules
 const BOT_SPEED = 4.4, PLAYER_SPEED = 6;
+// Combat tuning: slow enough that decisions matter, with short ranges so retreating actually helps.
+const PLAYER_HP = 150, PLAYER_DMG = 6, BOT_DMG = 7, PLAYER_FIRE = 0.3;
+const PLAYER_RANGE = 18, BOT_RANGE = 16;      // meters a bullet travels
+const AIM_ASSIST = 0.5;                       // radians: shots within this of a bot snap to it, in each arena
 const PATROL = [[32, 6], [32, 22], [22, 22], [22, 6]];
 const ROUTE = [[6, 14], [13, 6], [21, 11], [14, 21], [5, 23], [9, 14], [26, 14], [30, 20], [8, 8]];
 
@@ -27,6 +31,7 @@ function makeWorld(brain, canvasId, prefix) {
       x: 32, y: H / 2, hp: 250, maxHp: 250, ammo: 12, medkits: 2, heading: 180, action: "patrol",
       alive: true, shotT: -9, reloadUntil: 0, healUntil: 0, wp: 0, diedAt: null, flash: 0,
     },
+    you: { hp: PLAYER_HP, downAt: null, hit: 0 },
     bullets: [], noise: null, pending: false, nextDecide: 0.4,
     last: null, log: [], mistakes: [], stats: { n: 0, ok: 0, dmg: 0, tokens: 0, tokN: 0 },
   };
@@ -35,7 +40,7 @@ function makeWorld(brain, canvasId, prefix) {
 function reset() {
   t = 0;
   routeIdx = 0;
-  player = { x: 6, y: H / 2, lastShot: -9, hit: 0 };
+  player = { x: 6, y: H / 2, lastShot: -9 };
   worlds = [makeWorld("raw", "c-raw", "raw"), makeWorld("jev-state", "c-js", "js")];
   for (const w of worlds) { renderLog(w); setNow(w); }
   $("overlay").classList.remove("show");
@@ -46,6 +51,8 @@ function reset() {
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const r1 = (x) => Math.round(x * 10) / 10;
+/** An arena is over when its bot or you are down. */
+const ended = (w) => !w.bot.alive || w.you.downAt !== null;
 
 function step(o, dx, dy, speed, dt) {
   const len = Math.hypot(dx, dy);
@@ -58,7 +65,8 @@ function step(o, dx, dy, speed, dt) {
 function shoot(w, from, to, owner, spread = 0) {
   const a = Math.atan2(to.y - from.y, to.x - from.x) + spread;
   const speed = owner === "player" ? 34 : 26;
-  w.bullets.push({ x: from.x, y: from.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, owner, life: 1.4 });
+  const life = (owner === "player" ? PLAYER_RANGE : BOT_RANGE) / speed;
+  w.bullets.push({ x: from.x, y: from.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, owner, life });
 }
 
 // ---------- player ----------
@@ -71,10 +79,18 @@ function updatePlayer(dt) {
     if (keys.has("a") || keys.has("arrowleft")) dx -= 1;
     if (keys.has("d") || keys.has("arrowright")) dx += 1;
     step(player, dx, dy, PLAYER_SPEED, dt);
-    if (mouse.down && t - player.lastShot > 0.22) {
+    if (mouse.down && t - player.lastShot > PLAYER_FIRE) {
       player.lastShot = t;
+      const aim = Math.atan2(mouse.y - player.y, mouse.x - player.x);
       for (const w of worlds) {
-        shoot(w, player, mouse, "player");
+        if (ended(w)) continue;
+        // The bots stand in different places, so aim assist snaps to each arena's own bot.
+        // The same click is equally accurate in both arenas.
+        const b = w.bot;
+        const toBot = Math.atan2(b.y - player.y, b.x - player.x);
+        const off = Math.abs(Math.atan2(Math.sin(toBot - aim), Math.cos(toBot - aim)));
+        const snap = off < AIM_ASSIST && dist(player, b) <= PLAYER_RANGE + 2;
+        shoot(w, player, snap ? b : mouse, "player");
         w.noise = { x: player.x, y: player.y, t };
       }
     }
@@ -88,7 +104,7 @@ function updatePlayer(dt) {
   if (burst && t - player.lastShot > 0.4) {
     player.lastShot = t;
     for (const w of worlds) {
-      if (!w.bot.alive || dist(player, w.bot) > 24) continue;
+      if (ended(w) || dist(player, w.bot) > PLAYER_RANGE) continue;
       shoot(w, player, w.bot, "player", Math.sin(t * 7.3) * 0.09);
       w.noise = { x: player.x, y: player.y, t };
     }
@@ -99,7 +115,7 @@ function updatePlayer(dt) {
 
 function updateBot(w, dt) {
   const b = w.bot;
-  if (!b.alive) return;
+  if (ended(w)) return;
   b.flash = Math.max(0, b.flash - dt);
   if (b.ammo === 0 && !b.reloadUntil) b.reloadUntil = t + 2.5;
   if (b.reloadUntil && t >= b.reloadUntil) { b.ammo = 12; b.reloadUntil = 0; }
@@ -140,16 +156,19 @@ function updateBot(w, dt) {
 
 function updateBullets(w, dt) {
   const b = w.bot;
+  if (ended(w)) { w.bullets = []; return; }
   w.bullets = w.bullets.filter((p) => {
     p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
     if (p.life <= 0 || p.x < 0 || p.y < 0 || p.x > W || p.y > H) return false;
     if (p.owner === "player" && b.alive && Math.hypot(p.x - b.x, p.y - b.y) < 0.9) {
-      b.hp = Math.max(0, b.hp - 10); b.flash = 0.12;
+      b.hp = Math.max(0, b.hp - PLAYER_DMG); b.flash = 0.12;
       if (b.hp === 0) { b.alive = false; b.diedAt = t; addLog(w, { action: "down", note: `at ${t.toFixed(1)}s` }); }
       return false;
     }
     if (p.owner === "bot" && Math.hypot(p.x - player.x, p.y - player.y) < 0.75) {
-      w.stats.dmg += 6; player.hit = 0.12;
+      w.stats.dmg += BOT_DMG; w.you.hit = 0.12;
+      w.you.hp = Math.max(0, w.you.hp - BOT_DMG);
+      if (w.you.hp === 0) { w.you.downAt = t; addLog(w, { action: "youdown", note: `at ${t.toFixed(1)}s` }); }
       return false;
     }
     return true;
@@ -183,7 +202,7 @@ async function decide(w) {
     if (round !== roundId || !running) return;
     if (!res.ok) throw new Error(d.error || "request failed");
     const b = w.bot;
-    if (!b.alive) return;
+    if (ended(w)) return;
     b.action = d.action;
     if (d.action !== "heal") b.healUntil = 0;
     const ok = d.action === d.expected;
@@ -213,6 +232,7 @@ function addLog(w, entry) {
 function renderLog(w) {
   $(`${w.prefix}-log`).innerHTML = w.log.map((e) => {
     if (e.action === "down") return `<div class="no"><span>${e.t.toFixed(1)}s · BOT DOWN</span><span>${e.note}</span></div>`;
+    if (e.action === "youdown") return `<div class="ok"><span>${e.t.toFixed(1)}s · BOT WON</span><span>you went down ${e.note}</span></div>`;
     if (e.action === "error") return `<div class="no"><span>${e.t.toFixed(1)}s · error</span><span>${e.note}</span></div>`;
     return `<div class="${e.ok ? "ok" : "no"}"><span>${e.t.toFixed(1)}s · ${e.action}</span><span>${e.ok ? "✓" : `✗ should be ${e.expected}`} · ${Math.round(e.conf * 100)}%</span></div>`;
   }).join("");
@@ -296,9 +316,18 @@ function draw(w) {
 
   // player
   const walk = Math.floor(t * 7) % 2;
-  sprite(c, [...PLAYER, ...PLAYER_LEGS[running ? walk : 0]], player.x * S, player.y * S,
-    { k: player.hit > 0 ? COLORS.bad : COLORS.ink, w: COLORS.paper });
+  const youDown = w.you.downAt !== null;
+  sprite(c, [...PLAYER, ...PLAYER_LEGS[running && !youDown ? walk : 0]], player.x * S, player.y * S,
+    { k: youDown ? COLORS.grey : w.you.hit > 0 ? COLORS.bad : COLORS.ink, w: COLORS.paper });
   c.fillStyle = COLORS.ink; c.font = "16px VT323, monospace"; c.fillText("YOU", player.x * S - 10, player.y * S + 1.7 * S);
+  // your hp in this arena
+  c.fillStyle = COLORS.ink; c.font = "18px VT323, monospace"; c.fillText(`YOU ${w.you.hp}/${PLAYER_HP}`, 8, 18);
+  c.strokeStyle = COLORS.ink; c.lineWidth = 1.5; c.strokeRect(8, 24, 100, 7);
+  c.fillRect(9, 25, 98 * (w.you.hp / PLAYER_HP), 5);
+  if (youDown) {
+    c.fillStyle = COLORS.ink; c.font = "28px VT323, monospace";
+    c.fillText(`BOT WON · you went down at ${w.you.downAt.toFixed(1)}s`, W * S / 2 - 170, 34);
+  }
 
   // bot
   const body = !b.alive ? COLORS.grey : b.flash > 0 ? COLORS.paper : isJs ? COLORS.pink : COLORS.raw;
@@ -352,14 +381,14 @@ function frame(now) {
   last = now;
   if (running) {
     t += dt;
-    player.hit = Math.max(0, player.hit - dt);
     updatePlayer(dt);
     for (const w of worlds) {
       updateBot(w, dt);
       updateBullets(w, dt);
-      if (w.bot.alive && !w.pending && t >= w.nextDecide) decide(w);
+      w.you.hit = Math.max(0, w.you.hit - dt);
+      if (!ended(w) && !w.pending && t >= w.nextDecide) decide(w);
     }
-    if (t >= ROUND || worlds.every((w) => !w.bot.alive)) endRound();
+    if (t >= ROUND || worlds.every(ended)) endRound();
   }
   for (const w of worlds) draw(w);
   updateHud();
@@ -370,18 +399,24 @@ function endRound() {
   running = false;
   const [a, j] = worlds;
   const pct = (s) => (s.n ? `${Math.round((s.ok / s.n) * 100)}%` : "–");
-  const lived = (w) => (w.bot.alive ? `${ROUND}s (alive)` : `${w.bot.diedAt.toFixed(1)}s`);
   const tok = (s) => (s.tokN ? Math.round(s.tokens / s.tokN) : "–");
   const better = j.stats.n && a.stats.n && j.stats.ok / j.stats.n > a.stats.ok / a.stats.n;
   $("o-title").innerHTML = better ? 'Same brain. <span class="hl">Better data won.</span>' : "Round over";
   $("o-table").innerHTML = `
     <tr><td></td><td>Raw bot</td><td>jev-state bot</td></tr>
-    <tr><td>Correct decisions</td><td>${a.stats.ok}/${a.stats.n} (${pct(a.stats)})</td><td class="hl">${j.stats.ok}/${j.stats.n} (${pct(j.stats)})</td></tr>
-    <tr><td>Survived</td><td>${lived(a)}</td><td>${lived(j)}</td></tr>
-    <tr><td>Damage dealt to you</td><td>${a.stats.dmg}</td><td>${j.stats.dmg}</td></tr>
+    <tr><td>Correct decisions <small>(fair score)</small></td><td>${a.stats.ok}/${a.stats.n} (${pct(a.stats)})</td><td class="hl">${j.stats.ok}/${j.stats.n} (${pct(j.stats)})</td></tr>
+    <tr><td>Outcome</td><td>${outcome(a)}</td><td>${outcome(j)}</td></tr>
+    <tr><td>Bot hp left</td><td>${Math.round(a.bot.hp)}/${a.bot.maxHp}</td><td>${Math.round(j.bot.hp)}/${j.bot.maxHp}</td></tr>
+    <tr><td>Your hp left</td><td>${a.you.hp}/${PLAYER_HP}</td><td>${j.you.hp}/${PLAYER_HP}</td></tr>
     <tr><td>Avg input tokens</td><td>${tok(a.stats)}</td><td>${tok(j.stats)}</td></tr>`;
   $("o-mistakes").innerHTML = [a, j].map(mistakesHtml).join("");
   $("overlay").classList.add("show");
+}
+
+function outcome(w) {
+  if (!w.bot.alive) return `bot down · ${w.bot.diedAt.toFixed(1)}s`;
+  if (w.you.downAt !== null) return `bot won · ${w.you.downAt.toFixed(1)}s`;
+  return "both standing";
 }
 
 function describeInput(i) {
@@ -430,7 +465,6 @@ function downloadResult() {
   c.fillStyle = COLORS.paper; c.font = "30px VT323, monospace"; c.fillText("TWO_BOTS_ONE_BRAIN.result", 78, 82);
 
   const pct = (s) => (s.n ? Math.round((s.ok / s.n) * 100) : 0);
-  const lived = (w) => (w.bot.alive ? `${ROUND}s+` : `${w.bot.diedAt.toFixed(1)}s`);
   c.fillStyle = COLORS.ink; c.font = "600 58px 'Space Grotesk', sans-serif";
   c.fillText("Same brain. Same rules.", 96, 168);
   const win = j.stats.n && pct(j.stats) > pct(a.stats);
@@ -443,7 +477,7 @@ function downloadResult() {
   const rows = [
     ["", "RAW BOT", "JEV-STATE BOT"],
     ["Correct decisions", `${a.stats.ok}/${a.stats.n} (${pct(a.stats)}%)`, `${j.stats.ok}/${j.stats.n} (${pct(j.stats)}%)`],
-    ["Survived", lived(a), lived(j)],
+    ["Outcome", outcome(a), outcome(j)],
     ["Avg input tokens", a.stats.tokN ? String(Math.round(a.stats.tokens / a.stats.tokN)) : "-", j.stats.tokN ? String(Math.round(j.stats.tokens / j.stats.tokN)) : "-"],
   ];
   rows.forEach((r, i) => {
@@ -457,6 +491,8 @@ function downloadResult() {
     c.fillText(r[2], 820, y);
     c.fillRect(90, y + 14, 1016, 2);
   });
+  c.font = "500 17px 'IBM Plex Mono', monospace"; c.fillStyle = "#555";
+  c.fillText("Correct decisions is the fair score. Outcome also depends on aim and positioning.", 96, 510);
   c.font = "500 20px 'IBM Plex Mono', monospace"; c.fillStyle = "#3a3a3a";
   c.fillText("github.com/suranjaychandra/two-bots-one-brain  ·  built with jev-state  ·  model: Jev", 96, 545);
 
