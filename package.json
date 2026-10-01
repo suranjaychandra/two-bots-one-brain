@@ -1,0 +1,27 @@
+{
+  "name": "two-bots-one-brain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Two game bots share one brain (Jev). One sees raw state, one sees jev-state. Watch which one survives.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Suranjay Kumar",
+  "scripts": {
+    "start": "tsx server.ts",
+    "offline": "tsx server.ts --offline"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "^0.6.0",
+    "jev-state": "^0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suranjaychandra/two-bot-one-brain.git"
+  }
+}
