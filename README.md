@@ -32,6 +32,8 @@ npm run offline          # both bots use the local rules instead of Jev
 
 Open http://localhost:3001, choose **YOU PLAY** (WASD to move, click to shoot) or **WATCH** (a scripted player), then press **START ROUND**. Every decision is also printed in the terminal.
 
+The **MISTAKES.live** bar above the arenas counts each bot's wrong decisions by the rules, for this round and for every round since the page loaded. Survival doesn't affect it.
+
 ## How it works
 
 | File | What it does |

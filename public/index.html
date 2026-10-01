@@ -86,6 +86,23 @@
   .log div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--grey); padding: 1px 0; }
   .log .no { color: var(--bad); } .log .ok { color: var(--good); }
 
+  .meter { margin-top: 18px; }
+  .meter .bar span:last-child { font-size: 16px; opacity: .8; }
+  .meter .body { padding: 10px 14px 12px; }
+  .m-grid { display: grid; grid-template-columns: 140px 1fr 1fr; gap: 8px 16px; align-items: center; }
+  .m-grid .who { font: 22px/1 var(--pixel); padding: 3px 8px 1px; border: 1.5px solid var(--ink); text-align: center; }
+  .m-grid .who.raw { background: var(--raw); } .m-grid .who.js { background: var(--pink); }
+  .m-grid .cell { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+  .m-grid .track { height: 16px; border: 1.5px solid var(--ink); background: repeating-linear-gradient(90deg, #f3f3f3 0 8px, #fff 8px 9px); }
+  .m-grid .track i { display: block; height: 100%; width: 0; background: var(--bad); transition: width .4s steps(8); }
+  .m-grid .num { font: 600 15px var(--mono); min-width: 150px; text-align: right; }
+  .m-grid .num.zero { color: var(--good); }
+  .reset { appearance: none; border: 1px solid var(--grey-3); background: transparent; font: 11px var(--mono); color: var(--grey-3); cursor: pointer; padding: 0 5px; margin-left: 6px; }
+  .m-last { margin-top: 10px; font-size: 12.5px; border-top: 1.5px dashed var(--ink); padding-top: 8px; color: #3a3a3a; }
+  .m-last b.bad { color: var(--bad); }
+  .m-last.flash { animation: flash .5s steps(4); }
+  @keyframes flash { 0% { background: #ffe1e6; } 100% { background: transparent; } }
+  @media (max-width: 700px) { .m-grid { grid-template-columns: 1fr; } .m-grid > span.k:first-child { display: none; } .m-grid .num { min-width: 0; } }
   .score { margin-top: 18px; }
   .score .body { display: grid; grid-template-columns: 1.4fr 1fr 1fr; }
   .score .body > div { padding: 10px 14px; } .score .body > div + div { border-left: 1.5px solid var(--ink); }
@@ -146,6 +163,22 @@
       </div>
     </div>
 
+    <div class="win meter">
+      <div class="bar"><span>MISTAKES.live</span><span>wrong decisions by the rules · survival doesn't count</span></div>
+      <div class="body">
+        <div class="m-grid">
+          <span></span><span class="k">this round</span><span class="k">all rounds this session <button class="reset" id="m-reset" title="Reset session totals">reset</button></span>
+          <span class="who raw">RAW BOT</span>
+          <div class="cell"><div class="track"><i id="mr-raw-bar"></i></div><span class="num" id="mr-raw">0 wrong / 0</span></div>
+          <div class="cell"><div class="track"><i id="ms-raw-bar"></i></div><span class="num" id="ms-raw">0 wrong / 0</span></div>
+          <span class="who js">JEV-STATE BOT</span>
+          <div class="cell"><div class="track"><i id="mr-js-bar"></i></div><span class="num" id="mr-js">0 wrong / 0</span></div>
+          <div class="cell"><div class="track"><i id="ms-js-bar"></i></div><span class="num" id="ms-js">0 wrong / 0</span></div>
+        </div>
+        <div class="m-last" id="m-last">No mistakes yet. Each answer is checked against the rules for that bot's own situation.</div>
+      </div>
+    </div>
+
     <div class="arenas">
       <section class="win raw">
         <div class="bar"><span>RAW_BOT.exe</span><span class="tag raw">raw state</span></div>
@@ -180,14 +213,6 @@
       </section>
     </div>
 
-    <div class="win score">
-      <div class="bar"><span>SCORE.log</span><span class="boxes"><i></i></span></div>
-      <div class="body">
-        <div><div class="k">the question both bots ask</div><div style="font-size:12.5px;margin-top:4px">"What should I do next?" with five options: retreat, heal, attack, investigate, patrol. Each answer is checked against the rules (✓ / ✗).</div></div>
-        <div><div class="k">raw bot correct</div><div class="v raw" id="s-raw">0<small>/0</small></div></div>
-        <div><div class="k">jev-state bot correct</div><div class="v js" id="s-js">0<small>/0</small></div></div>
-      </div>
-    </div>
   </div>
 </div>
 

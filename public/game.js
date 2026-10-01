@@ -44,6 +44,7 @@ function reset() {
   worlds = [makeWorld("raw", "c-raw", "raw"), makeWorld("jev-state", "c-js", "js")];
   for (const w of worlds) { renderLog(w); setNow(w); }
   $("overlay").classList.remove("show");
+  updateScore();
 }
 
 // ---------- helpers ----------
@@ -210,7 +211,13 @@ async function decide(w) {
     if (d.tokens) { w.stats.tokens += d.tokens; w.stats.tokN++; }
     w.last = { ...d, ok };
     addLog(w, { action: d.action, ok, expected: d.expected, conf: d.confidence });
-    if (!ok) w.mistakes.push({ t: askedAt, action: d.action, expected: d.expected, input });
+    const tally = session[w.prefix];
+    tally.n++; if (!ok) tally.wrong++;
+    if (!ok) {
+      const m = { t: askedAt, action: d.action, expected: d.expected, input };
+      w.mistakes.push(m);
+      showLastMistake(w, m);
+    }
     $(`${w.prefix}-chars`).textContent = d.chars;
     setNow(w);
     updateScore();
@@ -256,11 +263,38 @@ function updateHud() {
   $("timer").textContent = Math.max(0, ROUND - t).toFixed(1);
 }
 
+// Session totals: wrong decisions across every round since the page loaded.
+const session = { raw: { n: 0, wrong: 0 }, js: { n: 0, wrong: 0 } };
+
 function updateScore() {
-  const [a, j] = worlds;
-  $("s-raw").innerHTML = `${a.stats.ok}<small>/${a.stats.n}</small>`;
-  $("s-js").innerHTML = `${j.stats.ok}<small>/${j.stats.n}</small>`;
+  const scale = (wrong, n) => (n ? wrong / n : 0);
+  const rows = [
+    ["mr-raw", worlds[0].stats.n - worlds[0].stats.ok, worlds[0].stats.n],
+    ["mr-js", worlds[1].stats.n - worlds[1].stats.ok, worlds[1].stats.n],
+    ["ms-raw", session.raw.wrong, session.raw.n],
+    ["ms-js", session.js.wrong, session.js.n],
+  ];
+  // Bars share one scale so the two bots are directly comparable; 20% wrong fills a bar.
+  const max = Math.max(0.2, ...rows.map(([, w, n]) => scale(w, n)));
+  for (const [id, wrong, n] of rows) {
+    const el = $(id);
+    el.textContent = n ? `${wrong} wrong / ${n} (${Math.round(scale(wrong, n) * 100)}%)` : "0 wrong / 0";
+    el.classList.toggle("zero", n > 0 && wrong === 0);
+    $(`${id}-bar`).style.width = `${(scale(wrong, n) / max) * 100}%`;
+  }
 }
+
+function showLastMistake(w, m) {
+  const name = w.brain === "raw" ? "Raw bot" : "jev-state bot";
+  const el = $("m-last");
+  el.innerHTML = `<b class="bad">Last mistake:</b> ${name} at ${m.t.toFixed(1)}s chose <b>${m.action}</b>, the rules say <b>${m.expected}</b> (${describeInput(m.input)})`;
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+}
+
+$("m-reset").addEventListener("click", () => {
+  session.raw = { n: 0, wrong: 0 }; session.js = { n: 0, wrong: 0 };
+  updateScore();
+});
 
 // ---------- drawing ----------
 
