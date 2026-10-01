@@ -11,7 +11,7 @@ Definitions:
 - An enemy is "near" when it is closer than 10 meters.
 - A noise is "recent" when it was heard less than one minute ago.
 Apply the FIRST rule that matches, in this order:
-1. retreat: health is critical and at least one enemy is near.
+1. retreat: health is critical and at least one enemy is visible.
 2. heal: health is critical or low, the NPC has at least one medkit, and no enemy is near.
 3. attack: at least one enemy is visible and the NPC has ammo.
 4. investigate: no enemies are visible and there was a recent noise.
@@ -42,7 +42,7 @@ export interface BotInput {
 export function policy(b: BotInput): Action {
   const ratio = b.hp / b.maxHp;
   const near = b.enemyDistances.some((d) => d < 10);
-  if (ratio < 0.2 && near) return "retreat";
+  if (ratio < 0.2 && b.enemyDistances.length > 0) return "retreat";
   if (ratio < 0.5 && b.medkits > 0 && !near) return "heal";
   if (b.enemyDistances.length > 0 && b.ammo > 0) return "attack";
   if (b.enemyDistances.length === 0 && b.noiseSecondsAgo !== null && b.noiseSecondsAgo < 60) return "investigate";

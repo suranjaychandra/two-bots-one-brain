@@ -400,8 +400,7 @@ function endRound() {
   const [a, j] = worlds;
   const pct = (s) => (s.n ? `${Math.round((s.ok / s.n) * 100)}%` : "–");
   const tok = (s) => (s.tokN ? Math.round(s.tokens / s.tokN) : "–");
-  const better = j.stats.n && a.stats.n && j.stats.ok / j.stats.n > a.stats.ok / a.stats.n;
-  $("o-title").innerHTML = better ? 'Same brain. <span class="hl">Better data won.</span>' : "Round over";
+  $("o-title").innerHTML = headline(a, j).html;
   $("o-table").innerHTML = `
     <tr><td></td><td>Raw bot</td><td>jev-state bot</td></tr>
     <tr><td>Correct decisions <small>(fair score)</small></td><td>${a.stats.ok}/${a.stats.n} (${pct(a.stats)})</td><td class="hl">${j.stats.ok}/${j.stats.n} (${pct(j.stats)})</td></tr>
@@ -411,6 +410,15 @@ function endRound() {
     <tr><td>Avg input tokens</td><td>${tok(a.stats)}</td><td>${tok(j.stats)}</td></tr>`;
   $("o-mistakes").innerHTML = [a, j].map(mistakesHtml).join("");
   $("overlay").classList.add("show");
+}
+
+/** The summary title compares decisions only, so it never claims more than the score shows. */
+function headline(a, j) {
+  const acc = (s) => (s.n ? s.ok / s.n : 0);
+  if (!a.stats.n || !j.stats.n) return { html: "Round over", text: "Round over." };
+  if (acc(j.stats) > acc(a.stats)) return { html: 'Same brain. <span class="hl">Fewer mistakes.</span>', text: "Fewer mistakes." };
+  if (acc(j.stats) === acc(a.stats)) return { html: "Same brain. Same calls this round.", text: "Same calls this round." };
+  return { html: "Round over", text: "Round over." };
 }
 
 function outcome(w) {
@@ -467,8 +475,7 @@ function downloadResult() {
   const pct = (s) => (s.n ? Math.round((s.ok / s.n) * 100) : 0);
   c.fillStyle = COLORS.ink; c.font = "600 58px 'Space Grotesk', sans-serif";
   c.fillText("Same brain. Same rules.", 96, 168);
-  const win = j.stats.n && pct(j.stats) > pct(a.stats);
-  const line = win ? "Better data won." : "Different data.";
+  const line = headline(a, j).text;
   c.font = "600 58px 'Space Grotesk', sans-serif";
   const lw = c.measureText(line).width;
   c.fillStyle = COLORS.pink; c.fillRect(90, 186, lw + 16, 66);
