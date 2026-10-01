@@ -396,6 +396,12 @@ $("mode-watch").addEventListener("click", () => setMode("watch"));
 $("start").addEventListener("click", start);
 $("again").addEventListener("click", start);
 
+// Close the round summary: the × button, Esc, or a click outside the card.
+const closeOverlay = () => $("overlay").classList.remove("show");
+$("close").addEventListener("click", closeOverlay);
+$("overlay").addEventListener("click", (e) => { if (e.target.id === "overlay") closeOverlay(); });
+window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeOverlay(); });
+
 (async () => {
   try {
     const info = await (await fetch("/api/info")).json();

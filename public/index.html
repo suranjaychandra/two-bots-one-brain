@@ -92,6 +92,8 @@
   .overlay { position: fixed; inset: 0; background: rgba(30,30,30,.55); display: none; place-items: center; z-index: 10; }
   .overlay.show { display: grid; }
   .overlay .win { width: min(620px, 92vw); }
+  .close { appearance: none; border: 1.5px solid var(--paper); background: transparent; color: var(--paper); font: 22px/1 var(--pixel); width: 24px; height: 22px; padding: 0; cursor: pointer; display: grid; place-items: center; }
+  .close:hover { background: var(--pink); color: var(--ink); border-color: var(--pink); }
   .overlay .body { padding: 18px 20px; }
   .overlay h2 { font: 600 40px/1.05 var(--grotesk); letter-spacing: -0.03em; margin: 0 0 12px; }
   .overlay table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 14px; }
@@ -180,7 +182,7 @@
 
 <div class="overlay" id="overlay">
   <div class="win">
-    <div class="bar"><span>ROUND_OVER.txt</span><span class="boxes"><i></i></span></div>
+    <div class="bar"><span>ROUND_OVER.txt</span><button class="close" id="close" aria-label="Close" title="Close (Esc)">×</button></div>
     <div class="body">
       <h2 id="o-title">Round over</h2>
       <table id="o-table"></table>
