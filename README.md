@@ -12,8 +12,8 @@ You fight both at once in two mirrored arenas. Every decision is checked against
 You need Node.js 22+.
 
 ```sh
-git clone https://github.com/suranjaychandra/two-bot-one-brain.git
-cd two-bot-one-brain
+git clone https://github.com/suranjaychandra/two-bots-one-brain.git
+cd two-bots-one-brain
 npm install
 ```
 
