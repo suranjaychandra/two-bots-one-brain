@@ -28,7 +28,7 @@ function makeWorld(brain, canvasId, prefix) {
       alive: true, shotT: -9, reloadUntil: 0, healUntil: 0, wp: 0, diedAt: null, flash: 0,
     },
     bullets: [], noise: null, pending: false, nextDecide: 0.4,
-    last: null, log: [], stats: { n: 0, ok: 0, dmg: 0, tokens: 0, tokN: 0 },
+    last: null, log: [], mistakes: [], stats: { n: 0, ok: 0, dmg: 0, tokens: 0, tokN: 0 },
   };
 }
 
@@ -172,10 +172,12 @@ function snapshot(w) {
 async function decide(w) {
   w.pending = true;
   const round = roundId;
+  const input = snapshot(w);
+  const askedAt = t;
   try {
     const res = await fetch("/api/decide", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ brain: w.brain, input: snapshot(w) }),
+      body: JSON.stringify({ brain: w.brain, input }),
     });
     const d = await res.json();
     if (round !== roundId || !running) return;
@@ -189,6 +191,7 @@ async function decide(w) {
     if (d.tokens) { w.stats.tokens += d.tokens; w.stats.tokN++; }
     w.last = { ...d, ok };
     addLog(w, { action: d.action, ok, expected: d.expected, conf: d.confidence });
+    if (!ok) w.mistakes.push({ t: askedAt, action: d.action, expected: d.expected, input });
     $(`${w.prefix}-chars`).textContent = d.chars;
     setNow(w);
     updateScore();
@@ -241,6 +244,28 @@ function updateScore() {
 
 // ---------- drawing ----------
 
+// 12x11 bot and 10x10 player, drawn pixel by pixel. k = outline, b = body, w = white.
+const BOT = [
+  ".....kk.....", "......k.....", "..kkkkkkkk..", ".kbbbbbbbbk.", ".kbwwbbwwbk.", ".kbwwbbwwbk.",
+  ".kbbbbbbbbk.", ".kbbkkkkbbk.", ".kbbbbbbbbk.", "..kkkkkkkk..",
+];
+const BOT_LEGS = ["..kk....kk..", "...kk..kk..."];
+const PLAYER = ["...kkkk...", "..kkkkkk..", "..kwwwwk..", "..kwkkwk..", "...kwwk...", ".kkkkkkkk.", "k.kkkkkk.k", "..kkkkkk.."];
+const PLAYER_LEGS = [["..kk..kk..", "..k....k.."], ["...kkkk...", "...k..k..."]];
+const PX = 2.8;
+
+function sprite(c, rows, cx, cy, pal) {
+  const w = rows[0].length * PX, h = rows.length * PX;
+  const x0 = Math.round(cx - w / 2), y0 = Math.round(cy - h / 2);
+  rows.forEach((row, r) => {
+    for (let i = 0; i < row.length; i++) {
+      const col = pal[row[i]];
+      if (col) { c.fillStyle = col; c.fillRect(x0 + i * PX, y0 + r * PX, Math.ceil(PX), Math.ceil(PX)); }
+    }
+  });
+  return { x0, y0, w, h };
+}
+
 function draw(w) {
   const c = w.ctx, S = SCALE, b = w.bot, isJs = w.brain === "jev-state";
   c.fillStyle = COLORS.paper; c.fillRect(0, 0, W * S, H * S);
@@ -270,21 +295,22 @@ function draw(w) {
   }
 
   // player
-  c.fillStyle = player.hit > 0 ? COLORS.bad : COLORS.ink;
-  c.beginPath(); c.arc(player.x * S, player.y * S, 0.7 * S, 0, Math.PI * 2); c.fill();
-  c.fillStyle = COLORS.paper; c.beginPath(); c.arc(player.x * S, player.y * S, 0.3 * S, 0, Math.PI * 2); c.fill();
-  c.fillStyle = COLORS.ink; c.font = "16px VT323, monospace"; c.fillText("YOU", player.x * S - 10, player.y * S + 1.5 * S);
+  const walk = Math.floor(t * 7) % 2;
+  sprite(c, [...PLAYER, ...PLAYER_LEGS[running ? walk : 0]], player.x * S, player.y * S,
+    { k: player.hit > 0 ? COLORS.bad : COLORS.ink, w: COLORS.paper });
+  c.fillStyle = COLORS.ink; c.font = "16px VT323, monospace"; c.fillText("YOU", player.x * S - 10, player.y * S + 1.7 * S);
 
   // bot
-  const size = 1.7 * S, bx = b.x * S - size / 2, by = b.y * S - size / 2;
-  c.fillStyle = !b.alive ? COLORS.grey : b.flash > 0 ? COLORS.paper : isJs ? COLORS.pink : COLORS.raw;
-  c.fillRect(bx, by, size, size);
-  c.strokeStyle = COLORS.ink; c.lineWidth = 2.5; c.strokeRect(bx, by, size, size);
+  const body = !b.alive ? COLORS.grey : b.flash > 0 ? COLORS.paper : isJs ? COLORS.pink : COLORS.raw;
+  const still = !running || !b.alive || b.healUntil;
+  const box = sprite(c, [...BOT, BOT_LEGS[still ? 0 : walk]], b.x * S, b.y * S, { k: COLORS.ink, b: body, w: COLORS.paper });
+  const size = box.w, bx = box.x0, by = box.y0;
   if (b.alive) {
-    const a = (b.heading * Math.PI) / 180, ex = Math.cos(a) * 5, ey = Math.sin(a) * 5;
+    // pupils follow the heading
+    const a = (b.heading * Math.PI) / 180, ox = Math.cos(a) > 0.3 ? 1 : 0, oy = Math.sin(a) > 0.3 ? 1 : 0;
     c.fillStyle = COLORS.ink;
-    c.fillRect(b.x * S - 7 + ex, b.y * S - 5 + ey, 4, 4);
-    c.fillRect(b.x * S + 3 + ex, b.y * S - 5 + ey, 4, 4);
+    c.fillRect(bx + (3 + ox) * PX, by + (4 + oy) * PX, Math.ceil(PX), Math.ceil(PX));
+    c.fillRect(bx + (7 + ox) * PX, by + (4 + oy) * PX, Math.ceil(PX), Math.ceil(PX));
     // hp bar
     c.fillStyle = COLORS.paper; c.fillRect(bx - 4, by - 12, size + 8, 7);
     c.fillStyle = isJs ? COLORS.pink : COLORS.raw; c.fillRect(bx - 3, by - 11, (size + 6) * (b.hp / b.maxHp), 5);
@@ -354,13 +380,90 @@ function endRound() {
     <tr><td>Survived</td><td>${lived(a)}</td><td>${lived(j)}</td></tr>
     <tr><td>Damage dealt to you</td><td>${a.stats.dmg}</td><td>${j.stats.dmg}</td></tr>
     <tr><td>Avg input tokens</td><td>${tok(a.stats)}</td><td>${tok(j.stats)}</td></tr>`;
+  $("o-mistakes").innerHTML = [a, j].map(mistakesHtml).join("");
   $("overlay").classList.add("show");
+}
+
+function describeInput(i) {
+  const hp = `hp ${Math.round((i.hp / i.maxHp) * 100)}%`;
+  const enemy = i.enemyDistances.length ? `you ${i.enemyDistances[0].toFixed(1)} m away` : "you out of sight";
+  const noise = i.noiseSecondsAgo == null ? "" : ` · noise ${Math.round(i.noiseSecondsAgo)}s ago`;
+  return `${hp} · ${enemy}${noise}`;
+}
+
+function mistakesHtml(w) {
+  const name = w.brain === "raw" ? "Raw bot" : "jev-state bot";
+  if (!w.mistakes.length) return `<div class="m-head ok">${name}: no wrong decisions ✓</div>`;
+  const died = w.bot.diedAt;
+  const fatal = died == null ? null : [...w.mistakes].reverse().find((m) => m.t <= died && died - m.t < 4);
+  const rows = w.mistakes.slice(0, 4).map((m) => `
+    <div class="m-row${m === fatal ? " fatal" : ""}">
+      <span>${m.t.toFixed(1)}s · <b>${m.action}</b> ✗ should be <b>${m.expected}</b></span>
+      <span>${describeInput(m.input)}${m === fatal ? ` · died ${(died - m.t).toFixed(1)}s later` : ""}</span>
+    </div>`).join("");
+  const more = w.mistakes.length > 4 ? `<div class="m-more">+ ${w.mistakes.length - 4} more</div>` : "";
+  return `<div class="m-head">${name}: ${w.mistakes.length} wrong decision${w.mistakes.length > 1 ? "s" : ""}</div>${rows}${more}`;
 }
 
 function start() {
   roundId++;
   reset();
   running = true;
+}
+
+// ---------- shareable result image ----------
+
+function downloadResult() {
+  const [a, j] = worlds;
+  const cv = document.createElement("canvas");
+  cv.width = 1200; cv.height = 630;
+  const c = cv.getContext("2d");
+  c.fillStyle = COLORS.pink; c.fillRect(0, 0, 1200, 630);
+  c.fillStyle = "rgba(30,30,30,.2)";
+  for (let x = 5; x < 1200; x += 10) for (let y = 5; y < 630; y += 10) c.fillRect(x, y, 2, 2);
+
+  // window
+  c.fillStyle = COLORS.ink; c.fillRect(68, 58, 1072, 520);
+  c.fillStyle = COLORS.paper; c.fillRect(60, 50, 1072, 520);
+  c.strokeStyle = COLORS.ink; c.lineWidth = 3; c.strokeRect(60, 50, 1072, 520);
+  c.fillStyle = COLORS.ink; c.fillRect(60, 50, 1072, 44);
+  c.fillStyle = COLORS.paper; c.font = "30px VT323, monospace"; c.fillText("TWO_BOTS_ONE_BRAIN.result", 78, 82);
+
+  const pct = (s) => (s.n ? Math.round((s.ok / s.n) * 100) : 0);
+  const lived = (w) => (w.bot.alive ? `${ROUND}s+` : `${w.bot.diedAt.toFixed(1)}s`);
+  c.fillStyle = COLORS.ink; c.font = "600 58px 'Space Grotesk', sans-serif";
+  c.fillText("Same brain. Same rules.", 96, 168);
+  const win = j.stats.n && pct(j.stats) > pct(a.stats);
+  const line = win ? "Better data won." : "Different data.";
+  c.font = "600 58px 'Space Grotesk', sans-serif";
+  const lw = c.measureText(line).width;
+  c.fillStyle = COLORS.pink; c.fillRect(90, 186, lw + 16, 66);
+  c.fillStyle = COLORS.ink; c.fillText(line, 98, 238);
+
+  const rows = [
+    ["", "RAW BOT", "JEV-STATE BOT"],
+    ["Correct decisions", `${a.stats.ok}/${a.stats.n} (${pct(a.stats)}%)`, `${j.stats.ok}/${j.stats.n} (${pct(j.stats)}%)`],
+    ["Survived", lived(a), lived(j)],
+    ["Avg input tokens", a.stats.tokN ? String(Math.round(a.stats.tokens / a.stats.tokN)) : "-", j.stats.tokN ? String(Math.round(j.stats.tokens / j.stats.tokN)) : "-"],
+  ];
+  rows.forEach((r, i) => {
+    const y = 316 + i * 52;
+    if (i > 0) { c.fillStyle = COLORS.pink; c.fillRect(806, y - 36, 300, 48); }
+    c.fillStyle = COLORS.ink;
+    c.font = i === 0 ? "28px VT323, monospace" : "500 26px 'IBM Plex Mono', monospace";
+    c.fillText(r[0], 96, y);
+    c.fillText(r[1], 500, y);
+    c.font = i === 0 ? "28px VT323, monospace" : "600 26px 'IBM Plex Mono', monospace";
+    c.fillText(r[2], 820, y);
+    c.fillRect(90, y + 14, 1016, 2);
+  });
+  c.font = "500 20px 'IBM Plex Mono', monospace"; c.fillStyle = "#3a3a3a";
+  c.fillText("github.com/suranjaychandra/two-bots-one-brain  ·  built with jev-state  ·  model: Jev", 96, 545);
+
+  const link = document.createElement("a");
+  link.download = `two-bots-one-brain-${Date.now()}.png`;
+  link.href = cv.toDataURL("image/png");
+  link.click();
 }
 
 // ---------- input ----------
@@ -395,6 +498,7 @@ $("mode-play").addEventListener("click", () => setMode("play"));
 $("mode-watch").addEventListener("click", () => setMode("watch"));
 $("start").addEventListener("click", start);
 $("again").addEventListener("click", start);
+$("download").addEventListener("click", downloadResult);
 
 // Close the round summary: the × button, Esc, or a click outside the card.
 const closeOverlay = () => $("overlay").classList.remove("show");
@@ -410,6 +514,10 @@ window.addEventListener("keydown", (e) => { if (e.key === "Escape") closeOverlay
     $("mode").textContent = offline ? "offline: local rules" : "live Jev";
     $("dot").classList.toggle("off", offline);
   } catch {}
+  if (matchMedia("(pointer: coarse)").matches) {
+    setMode("watch");
+    $("help").textContent = "On a phone, Watch mode works best. Use a laptop to play with WASD + mouse.";
+  }
   await document.fonts.ready;
   reset();
   requestAnimationFrame(frame);

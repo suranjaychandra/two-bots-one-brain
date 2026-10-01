@@ -26,6 +26,11 @@
   .nav .dark { background: var(--ink); color: var(--paper); }
   .dot { width: 8px; height: 8px; background: var(--good); display: inline-block; }
   .dot.off { background: var(--raw); }
+  @media (max-width: 640px) {
+    .nav { flex-wrap: wrap; font-size: 13px; }
+    .nav span, .nav a { white-space: nowrap; padding: 5px 9px; }
+    .nav .sub { display: none; }
+  }
 
   .hero { position: relative; overflow: hidden; text-align: center; padding: 34px 24px 22px; }
   .clouds { position: absolute; inset: 0; pointer-events: none;
@@ -100,13 +105,22 @@
   .overlay td { padding: 6px 8px; border-bottom: 1.5px solid var(--ink); }
   .overlay td:not(:first-child) { text-align: right; font-weight: 600; }
   .overlay .hl { background: var(--pink); }
+  .mistakes { margin: 0 0 16px; font-size: 12.5px; max-height: 34vh; overflow: auto; }
+  .m-head { font: 19px/1 var(--pixel); margin: 10px 0 4px; color: var(--bad); }
+  .m-head.ok { color: var(--good); }
+  .m-row { display: grid; gap: 1px; padding: 5px 8px; border-left: 3px solid var(--bad); background: #fff1f3; margin-bottom: 4px; }
+  .m-row span:last-child { color: #555; font-size: 11.5px; }
+  .m-row.fatal { background: var(--bad); color: var(--paper); border-left-color: var(--ink); }
+  .m-row.fatal span:last-child { color: #ffe1e6; }
+  .m-more { font-size: 11.5px; color: var(--grey-3); }
+  .o-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
   footer { max-width: 1240px; margin: 0 auto; padding: 16px 20px 30px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 12.5px; color: #3a3a3a; }
 </style>
 </head>
 <body>
 <nav class="nav">
-  <div><span><b>two-bots-one-brain</b></span><span>a jev-state demo</span></div>
+  <div><span><b>two-bots-one-brain</b></span><span class="sub">a jev-state demo</span></div>
   <div><span id="mode-pill"><i class="dot" id="dot"></i><span id="mode">…</span></span><a class="dark" href="https://github.com/suranjaychandra/jev-state" target="_blank" rel="noopener">jev-state on GitHub</a></div>
 </nav>
 
@@ -186,7 +200,11 @@
     <div class="body">
       <h2 id="o-title">Round over</h2>
       <table id="o-table"></table>
-      <button class="btn go" id="again">PLAY AGAIN</button>
+      <div class="mistakes" id="o-mistakes"></div>
+      <div class="o-actions">
+        <button class="btn go" id="again">PLAY AGAIN</button>
+        <button class="btn" id="download">⬇ DOWNLOAD RESULT</button>
+      </div>
     </div>
   </div>
 </div>
