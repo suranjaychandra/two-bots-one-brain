@@ -500,42 +500,62 @@ function downloadResult() {
   for (let x = 5; x < 1200; x += 10) for (let y = 5; y < 630; y += 10) c.fillRect(x, y, 2, 2);
 
   // window
-  c.fillStyle = COLORS.ink; c.fillRect(68, 58, 1072, 520);
-  c.fillStyle = COLORS.paper; c.fillRect(60, 50, 1072, 520);
-  c.strokeStyle = COLORS.ink; c.lineWidth = 3; c.strokeRect(60, 50, 1072, 520);
-  c.fillStyle = COLORS.ink; c.fillRect(60, 50, 1072, 44);
-  c.fillStyle = COLORS.paper; c.font = "30px VT323, monospace"; c.fillText("TWO_BOTS_ONE_BRAIN.result", 78, 82);
+  const X = 50, Y = 30, WW = 1100, WH = 568;
+  c.fillStyle = COLORS.ink; c.fillRect(X + 8, Y + 8, WW, WH);
+  c.fillStyle = COLORS.paper; c.fillRect(X, Y, WW, WH);
+  c.strokeStyle = COLORS.ink; c.lineWidth = 3; c.strokeRect(X, Y, WW, WH);
+  c.fillStyle = COLORS.ink; c.fillRect(X, Y, WW, 40);
+  c.fillStyle = COLORS.paper; c.font = "28px VT323, monospace"; c.fillText("TWO_BOTS_ONE_BRAIN.result", X + 16, Y + 29);
 
-  const pct = (s) => (s.n ? Math.round((s.ok / s.n) * 100) : 0);
-  c.fillStyle = COLORS.ink; c.font = "600 58px 'Space Grotesk', sans-serif";
-  c.fillText("Same brain. Same rules.", 96, 168);
+  // headline
+  c.fillStyle = COLORS.ink; c.font = "600 46px 'Space Grotesk', sans-serif";
+  c.fillText("Same brain. Same rules.", X + 34, Y + 98);
   const line = headline(a, j).text;
-  c.font = "600 58px 'Space Grotesk', sans-serif";
   const lw = c.measureText(line).width;
-  c.fillStyle = COLORS.pink; c.fillRect(90, 186, lw + 16, 66);
-  c.fillStyle = COLORS.ink; c.fillText(line, 98, 238);
+  c.fillStyle = COLORS.pink; c.fillRect(X + 28, Y + 112, lw + 14, 54);
+  c.fillStyle = COLORS.ink; c.fillText(line, X + 35, Y + 154);
 
+  // table
+  const pct = (ok, n) => (n ? Math.round((ok / n) * 100) : 0);
+  const wrong = (w) => w.stats.n - w.stats.ok;
+  const tok = (w) => (w.stats.tokN ? String(Math.round(w.stats.tokens / w.stats.tokN)) : "-");
   const rows = [
     ["", "RAW BOT", "JEV-STATE BOT"],
-    ["Correct decisions", `${a.stats.ok}/${a.stats.n} (${pct(a.stats)}%)`, `${j.stats.ok}/${j.stats.n} (${pct(j.stats)}%)`],
+    ["Wrong decisions (this round)", `${wrong(a)} of ${a.stats.n}`, `${wrong(j)} of ${j.stats.n}`],
+    ["Wrong decisions (all rounds)", `${session.raw.wrong} of ${session.raw.n}`, `${session.js.wrong} of ${session.js.n}`],
+    ["Correct decisions", `${pct(a.stats.ok, a.stats.n)}%`, `${pct(j.stats.ok, j.stats.n)}%`],
     ["Outcome", outcome(a), outcome(j)],
-    ["Avg input tokens", a.stats.tokN ? String(Math.round(a.stats.tokens / a.stats.tokN)) : "-", j.stats.tokN ? String(Math.round(j.stats.tokens / j.stats.tokN)) : "-"],
+    ["Avg input tokens", tok(a), tok(j)],
   ];
+  const col1 = X + 34, col2 = X + 520, col3 = X + 800, rowH = 42, top = Y + 222;
   rows.forEach((r, i) => {
-    const y = 316 + i * 52;
-    if (i > 0) { c.fillStyle = COLORS.pink; c.fillRect(806, y - 36, 300, 48); }
+    const y = top + i * rowH;
+    if (i > 0) { c.fillStyle = COLORS.pink; c.fillRect(col3 - 14, y - 29, WW - (col3 - X) - 20, rowH - 4); }
+    const isWrongRow = i === 1 || i === 2;
     c.fillStyle = COLORS.ink;
-    c.font = i === 0 ? "28px VT323, monospace" : "500 26px 'IBM Plex Mono', monospace";
-    c.fillText(r[0], 96, y);
-    c.fillText(r[1], 500, y);
-    c.font = i === 0 ? "28px VT323, monospace" : "600 26px 'IBM Plex Mono', monospace";
-    c.fillText(r[2], 820, y);
-    c.fillRect(90, y + 14, 1016, 2);
+    c.font = i === 0 ? "26px VT323, monospace" : "500 22px 'IBM Plex Mono', monospace";
+    c.fillText(r[0], col1, y);
+    c.fillStyle = isWrongRow && r[1][0] !== "0" ? COLORS.bad : COLORS.ink;
+    c.font = i === 0 ? "26px VT323, monospace" : "600 22px 'IBM Plex Mono', monospace";
+    c.fillText(r[1], col2, y);
+    c.fillStyle = COLORS.ink;
+    c.fillText(r[2], col3, y);
+    c.fillRect(col1 - 6, y + 11, WW - 56, 2);
   });
-  c.font = "500 17px 'IBM Plex Mono', monospace"; c.fillStyle = "#555";
-  c.fillText("Correct decisions is the fair score. Outcome also depends on aim and positioning.", 96, 510);
-  c.font = "500 20px 'IBM Plex Mono', monospace"; c.fillStyle = "#3a3a3a";
-  c.fillText("github.com/suranjaychandra/two-bots-one-brain  ·  built with jev-state  ·  model: Jev", 96, 545);
+
+  // one real mistake as an example
+  const example = a.mistakes[a.mistakes.length - 1] || j.mistakes[j.mistakes.length - 1];
+  let y = top + rows.length * rowH + 4;
+  if (example) {
+    const who = a.mistakes.includes(example) ? "Raw bot" : "jev-state bot";
+    c.font = "600 18px 'IBM Plex Mono', monospace"; c.fillStyle = COLORS.bad;
+    c.fillText(`${who}'s last mistake: ${example.action} ✗ rules say ${example.expected}  (${describeInput(example.input)})`, col1, y);
+    y += 28;
+  }
+  c.font = "500 16px 'IBM Plex Mono', monospace"; c.fillStyle = "#555";
+  c.fillText("Wrong decisions are checked against the rules for each bot's own situation. Survival also depends on aim.", col1, y);
+  c.font = "500 18px 'IBM Plex Mono', monospace"; c.fillStyle = "#3a3a3a";
+  c.fillText("github.com/suranjaychandra/two-bots-one-brain  ·  built with jev-state  ·  model: Jev", col1, Y + WH - 18);
 
   const link = document.createElement("a");
   link.download = `two-bots-one-brain-${Date.now()}.png`;
