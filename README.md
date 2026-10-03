@@ -7,6 +7,8 @@ Two game bots share one brain: [Jev](https://typesafe.ai), TypeSafe AI's decisio
 
 You fight both at once in two mirrored arenas. Every decision is checked against the rules, so you can see which bot reads the situation correctly.
 
+![Two Bots, One Brain: the raw bot and the jev-state bot side by side, with the live mistakes meter](docs/gameplay.png)
+
 ## Run it
 
 You need Node.js 22+.
@@ -33,6 +35,20 @@ npm run offline          # both bots use the local rules instead of Jev
 Open http://localhost:3001, choose **YOU PLAY** (WASD to move, click to shoot) or **WATCH** (a scripted player), then press **START ROUND**. Every decision is also printed in the terminal.
 
 The **MISTAKES.live** bar above the arenas counts each bot's wrong decisions by the rules, for this round and for every round since the page loaded. Survival doesn't affect it.
+
+## What it looks like in real play
+
+These screenshots are from real rounds against the live Jev API, with the same rules for both bots.
+
+In this session, the **raw bot made 5 wrong decisions out of 107**. The **jev-state bot made 0 out of 109**. Each answer is checked against the rules for that bot's own situation.
+
+![Round over: both arenas after a round, with the mistakes meter for the whole session](docs/gameover.png)
+
+After a round you can download a result card to share:
+
+![Downloadable result card: wrong decisions for the round and the session, outcome, and tokens](docs/result.png)
+
+This is a handful of rounds, not a benchmark. For a reproducible benchmark (420 calls, seeded scenarios), see [jev-state](https://github.com/suranjaychandra/jev-state#benchmark).
 
 ## How it works
 
