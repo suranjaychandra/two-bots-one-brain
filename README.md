@@ -1,5 +1,7 @@
 # Two Bots, One Brain
 
+**Built with [jev-state](https://github.com/suranjaychandra/jev-state)** ([npm](https://www.npmjs.com/package/jev-state)), an open-source library that turns raw app and game state into state Jev reads well.
+
 Two game bots share one brain: [Jev](https://typesafe.ai), TypeSafe AI's decision model. Every 1.5 seconds each bot asks Jev what to do, with the same rules and the same question. The only difference is what each bot sends:
 
 - **Raw bot:** its raw game state: `hp: 38, maxHp: 250`, exact distances, epoch timestamps, positions, and debug data.
@@ -72,3 +74,7 @@ The bots choose between five actions: **retreat**, **heal**, **attack**, **inves
 [MIT](LICENSE) © 2026 Suranjay Kumar
 
 Unofficial community project. Not affiliated with or endorsed by TypeSafe AI.
+
+## Related
+
+- [jev-state](https://github.com/suranjaychandra/jev-state): the library behind the jev-state bot, with a reproducible benchmark and a playground.
