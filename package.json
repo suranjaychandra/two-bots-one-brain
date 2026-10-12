@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@typesafe-ai/sdk": "^0.6.0",
-    "jev-state": "^0.1.0"
+    "jev-state": "^0.1.2"
   },
   "devDependencies": {
     "tsx": "^4.23.15"
