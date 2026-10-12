@@ -8,7 +8,8 @@
   "author": "Suranjay Kumar",
   "scripts": {
     "start": "tsx server.ts",
-    "offline": "tsx server.ts --offline"
+    "offline": "tsx server.ts --offline",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "engines": {
     "node": ">=22"
