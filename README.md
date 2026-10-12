@@ -69,6 +69,18 @@ The bots choose between five actions: **retreat**, **heal**, **attack**, **inves
 - **Each arena has its own fight.** You have 150 hp in each arena, and bullets travel 16–18 m, so retreating out of range actually saves a bot.
 - **Correct decisions is the fair score.** Each answer is checked against the rules for that bot's own situation. Who wins a round also depends on aim and positioning, so compare outcomes over several rounds rather than one.
 
+## Development checks
+
+```sh
+npm test
+```
+
+The tests check the rules' priorities and boundaries, the raw state, the jev-state projection, and the browser snapshot. They use a fixed clock and make no Jev calls. CI runs them on Node.js 22, 24, and 26.
+
+The browser rounds each bot's numbers once (whole hp, 0.1 m, 0.1 s) before a decision. The correct answer and both bots' states are built from that same snapshot, so every bot is judged on exactly what it was shown.
+
+The game's rules differ slightly from the [jev-state benchmark](https://github.com/suranjaychandra/jev-state#benchmark): here, critical health plus any visible enemy means retreat; the benchmark has seven actions and needs a near enemy.
+
 ## License
 
 [MIT](LICENSE) © 2026 Suranjay Kumar
